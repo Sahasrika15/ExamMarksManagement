@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { GraduationCap, Lock, User, Mail, Eye, EyeOff, Sparkles, BookOpen, TrendingUp, Shield } from "lucide-react"
+import { GraduationCap, Lock, User, Mail, Eye, EyeOff } from "lucide-react"
 import { toast, Toaster } from "sonner"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -116,97 +116,12 @@ export default function LoginPage() {
 
       <Toaster position="top-right" />
 
-      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-        {/* Left Side - Centered with smaller fonts */}
-        <div className="hidden lg:block">
-          <div className="text-center space-y-6">
-            {/* Logo and Brand */}
-            <div className="flex items-center justify-center space-x-3 mb-8">
-              <div className="relative">
-                <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white p-3 rounded-xl shadow-lg">
-                  <GraduationCap className="h-10 w-10" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center">
-                  <Sparkles className="h-2 w-2 text-white" />
-                </div>
-              </div>
-              <div className="text-center">
-                <h1 className="text-3xl font-black text-gray-800 mb-1">EduMarks</h1>
-                <p className="text-sm text-purple-600 font-medium">Engineering Excellence</p>
-              </div>
-            </div>
-
-            {/* Main heading */}
-            <div className="space-y-4 mb-8">
-              <h2 className="text-2xl lg:text-3xl font-black text-gray-800 leading-tight">
-                Welcome to the
-                <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mt-1">
-                  Future of Education
-                </span>
-              </h2>
-              <p className="text-base text-gray-600 leading-relaxed max-w-md mx-auto">
-                Experience next-generation academic management with AI-powered insights,
-                real-time analytics, and seamless collaboration tools.
-              </p>
-            </div>
-
-            {/* Enhanced Features Grid */}
-            <div className="space-y-4 max-w-md mx-auto">
-              <div className="group flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200 hover:bg-white/80 transition-all duration-300">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <BookOpen className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-gray-800 font-semibold text-sm">Smart Student Management</h3>
-                  <p className="text-gray-600 text-xs">AI-powered student tracking and analytics</p>
-                </div>
-              </div>
-
-              <div className="group flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200 hover:bg-white/80 transition-all duration-300">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <TrendingUp className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-gray-800 font-semibold text-sm">Advanced Analytics</h3>
-                  <p className="text-gray-600 text-xs">Real-time performance insights and reports</p>
-                </div>
-              </div>
-
-              <div className="group flex items-center space-x-3 p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200 hover:bg-white/80 transition-all duration-300">
-                <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Shield className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-gray-800 font-semibold text-sm">Secure Cloud Platform</h3>
-                  <p className="text-gray-600 text-xs">Enterprise-grade security and reliability</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex justify-center space-x-6 mt-8">
-              <div className="text-center">
-                <div className="text-xl font-bold text-gray-800">50K+</div>
-                <div className="text-xs text-gray-600">Active Students</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-gray-800">500+</div>
-                <div className="text-xs text-gray-600">Faculty Members</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-gray-800">99.9%</div>
-                <div className="text-xs text-gray-600">Uptime</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Login Form without gradient border */}
+      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 items-start relative z-10">
+        {/* Left Side - Login Form */}
         <div className="w-full max-w-md mx-auto">
           <Card className="border-0 shadow-2xl backdrop-blur-xl bg-white/95 overflow-hidden">
-            {/* Card Header without gradient border */}
             <CardHeader className="pb-8">
-              <div className="flex items-center justify-center mb-6 lg:hidden">
+              <div className="flex items-center justify-center mb-6">
                 <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-xl shadow-lg">
                   <GraduationCap className="h-8 w-8" />
                 </div>
@@ -218,7 +133,7 @@ export default function LoginPage() {
             </CardHeader>
 
             <CardContent className="space-y-6 p-8">
-              {/* Login Type Selection with enhanced design */}
+              {/* Login Type Selection */}
               <div className="space-y-3">
                 <Label htmlFor="loginType" className="text-base font-semibold text-gray-700">Login As</Label>
                 <Select value={loginType} onValueChange={setLoginType}>
@@ -234,7 +149,7 @@ export default function LoginPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Enhanced Email Field */}
+                {/* Email Field */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-base font-semibold text-gray-700">Email Address</Label>
                   <div className="relative group">
@@ -251,7 +166,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Enhanced Password Field */}
+                {/* Password Field */}
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-base font-semibold text-gray-700">Password</Label>
                   <div className="relative group">
@@ -315,25 +230,7 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                {/* Remember Me & Forgot Password */}
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="remember"
-                      checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                      className="border-2 border-gray-300 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
-                    />
-                    <Label htmlFor="remember" className="text-sm text-gray-600 font-medium">
-                      Remember me
-                    </Label>
-                  </div>
-                  <Link href="/forgot-password" className="text-sm text-purple-600 hover:text-purple-800 font-medium transition-colors duration-200">
-                    Forgot password?
-                  </Link>
-                </div>
-
-                {/* Enhanced Submit Button */}
+                {/* Submit Button */}
                 <Button
                   type="submit"
                   className="w-full h-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 relative overflow-hidden group"
@@ -353,34 +250,40 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              {/* Enhanced Demo Credentials */}
-              <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-purple-100">
-                <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-                  Demo Credentials
-                </h4>
-                <div className="text-sm text-gray-700 space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
-                    <strong>Faculty:</strong>
-                    <code className="text-xs bg-gray-200 px-2 py-1 rounded">faculty@college.edu / facultyPass123</code>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
-                    <strong>Admin:</strong>
-                    <code className="text-xs bg-gray-200 px-2 py-1 rounded">admin@college.edu / admin123</code>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-white/60 rounded-lg">
-                    <strong>HOD:</strong>
-                    <code className="text-xs bg-gray-200 px-2 py-1 rounded">hod@college.edu / hod123</code>
-                  </div>
-                </div>
-              </div>
-
               {/* Back to Home */}
               <div className="text-center pt-4">
                 <Link href="/" className="text-sm text-gray-600 hover:text-purple-600 font-medium transition-colors duration-200 flex items-center justify-center space-x-2">
                   <span>←</span>
                   <span>Back to Home</span>
                 </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Side - Dummy Credentials */}
+        <div className="w-full max-w-md mx-auto">
+          <Card className="border-0 shadow-2xl backdrop-blur-xl bg-white/95 overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl font-bold text-gray-900 text-center">Demo Credentials</CardTitle>
+              <CardDescription className="text-gray-600 text-center text-base">
+                Use these to test the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="text-sm text-gray-700 space-y-3">
+                <div className="flex flex-col space-y-1 p-2 bg-blue-50 rounded-lg">
+                  <strong className="text-gray-800">Faculty:</strong>
+                  <code className="text-xs bg-gray-200 px-2 py-1 rounded">faculty@college.edu / facultyPass123 / FAC001 / CSE</code>
+                </div>
+                <div className="flex flex-col space-y-1 p-2 bg-purple-50 rounded-lg">
+                  <strong className="text-gray-800">Admin:</strong>
+                  <code className="text-xs bg-gray-200 px-2 py-1 rounded">admin@admin.com / admin123</code>
+                </div>
+                <div className="flex flex-col space-y-1 p-2 bg-green-50 rounded-lg">
+                  <strong className="text-gray-800">HOD:</strong>
+                  <code className="text-xs bg-gray-200 px-2 py-1 rounded">hod@college.edu / hod123 / CSE</code>
+                </div>
               </div>
             </CardContent>
           </Card>
