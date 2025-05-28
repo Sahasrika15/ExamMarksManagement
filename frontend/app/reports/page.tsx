@@ -51,8 +51,8 @@ export default function ReportsPage() {
 
   const [selectedBatch, setSelectedBatch] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedYear, setSelectedYear] = useState("all"); // Updated from ""
+  const [selectedSemester, setSelectedSemester] = useState("all"); // Updated from ""
   const [selectedStudent, setSelectedStudent] = useState("all");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [selectedExamType, setSelectedExamType] = useState("all");
@@ -86,8 +86,8 @@ export default function ReportsPage() {
       const queryParams = new URLSearchParams();
       if (selectedBatch !== "all") queryParams.append("batch", selectedBatch);
       if (selectedBranch !== "all") queryParams.append("branch", selectedBranch);
-      if (selectedYear) queryParams.append("year", selectedYear);
-      if (selectedSemester) queryParams.append("semester", selectedSemester);
+      if (selectedYear && selectedYear !== "all") queryParams.append("year", selectedYear);
+      if (selectedSemester && selectedSemester !== "all") queryParams.append("semester", selectedSemester);
       if (selectedStudent !== "all") queryParams.append("studentId", selectedStudent);
       if (selectedSubject !== "all") queryParams.append("subjectId", selectedSubject);
       if (selectedExamType !== "all") queryParams.append("examType", selectedExamType);
@@ -169,8 +169,8 @@ export default function ReportsPage() {
     const queryParams = new URLSearchParams();
     if (selectedBatch !== "all") queryParams.append("batch", selectedBatch);
     if (selectedBranch !== "all") queryParams.append("branch", selectedBranch);
-    if (selectedYear) queryParams.append("year", selectedYear);
-    if (selectedSemester) queryParams.append("semester", selectedSemester);
+    if (selectedYear && selectedYear !== "all") queryParams.append("year", selectedYear);
+    if (selectedSemester && selectedSemester !== "all") queryParams.append("semester", selectedSemester);
     if (selectedStudent !== "all") queryParams.append("studentId", selectedStudent);
     if (selectedSubject !== "all") queryParams.append("subjectId", selectedSubject);
     if (selectedExamType !== "all") queryParams.append("examType", selectedExamType);
@@ -251,7 +251,7 @@ export default function ReportsPage() {
                       <SelectValue placeholder="All Years" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Years</SelectItem>
+                      <SelectItem value="all">All Years</SelectItem>
                       <SelectItem value="1">1st Year</SelectItem>
                       <SelectItem value="2">2nd Year</SelectItem>
                       <SelectItem value="3">3rd Year</SelectItem>
@@ -265,7 +265,7 @@ export default function ReportsPage() {
                       <SelectValue placeholder="All Semesters" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Semesters</SelectItem>
+                      <SelectItem value="all">All Semesters</SelectItem>
                       <SelectItem value="1">1st Semester</SelectItem>
                       <SelectItem value="2">2nd Semester</SelectItem>
                     </SelectContent>

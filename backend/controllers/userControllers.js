@@ -26,24 +26,7 @@ const loginUser = async (req, res) => {
     // Find user by email and role
     const user = await User.findOne({ email: email.toLowerCase(), role: loginType });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    // Additional checks for faculty
-    if (loginType === 'faculty') {
-      if (!facultyId || facultyId !== user.facultyId) {
-        return res.status(401).json({ success: false, message: 'Invalid faculty ID' });
-      }
-      if (!department || department !== user.department) {
-        return res.status(401).json({ success: false, message: 'Invalid department' });
-      }
-    }
-
-    // Additional checks for HOD
-    if (loginType === 'hod') {
-      if (!department || department !== user.department) {
-        return res.status(401).json({ success: false, message: 'Invalid department' });
-      }
+      return res.status(401).json({ success: false, message: 'Invalid credentials or role' });
     }
 
     // Verify password
@@ -52,35 +35,43 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Generate JWT
+    // Additional validation for faculty and HOD
+    if (loginType === 'faculty' && (user.facultyId !== facultyId || user.department !== department)) {
+      return res.status(401).json({ success: false, message: 'Invalid faculty ID or department' });
+    }
+
+    if (loginType === 'hod' && user.department !== department) {
+      return res.status(401).json({ success: false, message: 'Invalid department for HOD' });
+    }
+
+    // Generate JWT token
     const token = jwt.sign(
-      {
-        userId: user._id,
-        email: user.email,
+      { 
+        userId: user._id, 
         role: user.role,
+        email: user.email,
+        name: user.name
       },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
-    // Prepare user data for response
-    const userData = {
-      email: user.email,
-      name: user.name || 'User',
-      department: user.department,
-      role: user.role,
-      loginTime: new Date().toISOString(),
-    };
-
-    // Send response
     res.status(200).json({
       success: true,
       token,
-      user: userData,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department || null,
+        facultyId: user.facultyId || null,
+      }
     });
+
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ success: false, message: 'Server error. Please try again later.' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 

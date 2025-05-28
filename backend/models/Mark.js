@@ -12,11 +12,10 @@ const markSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'Subject',
       required: true,
-    },
-    examType: {
+    },    examType: {
       type: String,
       required: true,
-      enum: ['Class Test', 'Mid 1', 'Mid 2', 'Semester Exam', 'Lab Internal', 'Lab External'],
+      enum: ['CT', 'Mid 1', 'Mid 2', 'Semester Exam', 'Internal Lab', 'External Lab'],
     },
     maxMarks: {
       type: Number,

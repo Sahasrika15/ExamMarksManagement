@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 // Base URL for the Express backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export default function LoginPage() {
   const [loginType, setLoginType] = useState("faculty")

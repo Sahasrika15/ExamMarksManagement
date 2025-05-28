@@ -63,6 +63,7 @@ export default function MarksPage() {
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
   const [marks, setMarks] = useState<{ [key: string]: Mark }>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [selectedBatch, setSelectedBatch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
@@ -136,10 +137,14 @@ export default function MarksPage() {
       setMaxMarks(exam ? exam.maxMarks : 100);
     } else {
       setMaxMarks(null);
+      setMarks({});
+      setExistingMarks([]);
     }
   }, [selectedSubject, selectedExamType, exams]);
 
   const fetchExistingMarks = async () => {
+    if (!selectedSubject || !selectedExamType) return;
+
     try {
       const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
       if (!token) {
@@ -157,19 +162,31 @@ export default function MarksPage() {
         const data = await response.json();
         setExistingMarks(data);
 
-        const prefilledMarks: { [key: string]: Mark } = {};
-        data.forEach((mark: Mark) => {
-          const markKey = `${mark.studentId}-${mark.subjectId}-${mark.examType}`;
-          prefilledMarks[markKey] = mark;
+        const newMarks: { [key: string]: Mark } = {};
+        filteredStudents.forEach((student) => {
+          const markKey = `${student._id}-${selectedSubject}-${selectedExamType}`;
+          const existingMark = data.find((m: Mark) => m.studentId === student._id);
+
+          newMarks[markKey] = {
+            _id: existingMark?._id,
+            studentId: student._id,
+            subjectId: selectedSubject,
+            examType: selectedExamType,
+            maxMarks: existingMark?.maxMarks || maxMarks || 100,
+            scoredMarks: existingMark?.scoredMarks ?? 0,
+            comments: existingMark?.comments || "",
+          };
         });
-        setMarks(prefilledMarks);
+        setMarks(newMarks);
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Failed to fetch marks");
+        setMarks({});
       }
     } catch (error) {
       console.error("Error fetching existing marks:", error);
       toast.error("Error fetching existing marks");
+      setMarks({});
     }
   };
 
@@ -220,11 +237,6 @@ export default function MarksPage() {
     const markKey = `${studentId}-${selectedSubject}-${selectedExamType}`;
     const scoredMarks = Number.parseFloat(value);
 
-    if (isNaN(scoredMarks) || scoredMarks < 0 || (maxMarks && scoredMarks > maxMarks)) {
-      toast.error(`Marks must be between 0 and ${maxMarks}`);
-      return;
-    }
-
     setMarks((prev) => ({
       ...prev,
       [markKey]: {
@@ -233,7 +245,7 @@ export default function MarksPage() {
         subjectId: selectedSubject,
         examType: selectedExamType,
         maxMarks: maxMarks || 100,
-        scoredMarks,
+        scoredMarks: isNaN(scoredMarks) ? 0 : Math.min(scoredMarks, maxMarks || 100),
         comments: prev[markKey]?.comments || "",
       },
     }));
@@ -241,7 +253,6 @@ export default function MarksPage() {
 
   const handleCommentChange = (studentId: string, comment: string) => {
     const markKey = `${studentId}-${selectedSubject}-${selectedExamType}`;
-
     setMarks((prev) => ({
       ...prev,
       [markKey]: {
@@ -263,18 +274,22 @@ export default function MarksPage() {
       return;
     }
 
-    const marksArray = Object.values(marks).filter(
-      (mark) =>
-        mark.studentId &&
-        mark.subjectId &&
-        mark.examType &&
-        mark.scoredMarks != null &&
-        mark.scoredMarks >= 0 &&
-        (maxMarks ? mark.scoredMarks <= maxMarks : true)
+    const marksToSave = Object.values(marks).filter(
+      (mark) => mark.studentId && mark.subjectId && mark.examType
     );
 
-    if (marksArray.length === 0) {
-      toast.error("No valid marks to save. Please enter marks for at least one student.");
+    if (marksToSave.length === 0) {
+      toast.error("No marks to save");
+      return;
+    }
+
+    // Validate marks before saving
+    const invalidMarks = marksToSave.filter(
+      (mark) => mark.scoredMarks < 0 || mark.scoredMarks > (mark.maxMarks || 100)
+    );
+
+    if (invalidMarks.length > 0) {
+      toast.error(`Some marks are invalid. Marks must be between 0 and ${maxMarks || 100}`);
       return;
     }
 
@@ -285,12 +300,12 @@ export default function MarksPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ marks: marksArray }),
+        body: JSON.stringify({ marks: marksToSave }),
       });
 
       if (response.ok) {
         toast.success("Marks saved successfully!");
-        setMarks({});
+        setIsEditing(false);
         await fetchExistingMarks();
       } else {
         const errorData = await response.json();
@@ -309,7 +324,7 @@ export default function MarksPage() {
       return;
     }
 
-    if (mark.scoredMarks == null || mark.scoredMarks < 0 || (maxMarks && mark.scoredMarks > maxMarks)) {
+    if (mark.scoredMarks < 0 || (maxMarks && mark.scoredMarks > maxMarks)) {
       toast.error(`Marks must be between 0 and ${maxMarks}`);
       return;
     }
@@ -366,6 +381,52 @@ export default function MarksPage() {
     } catch (error) {
       console.error("Error deleting mark:", error);
       toast.error("Error deleting mark");
+    }
+  };
+
+  const exportMarks = async () => {
+    if (!selectedSubject || !selectedExamType) {
+      toast.error("Please select subject and exam type first");
+      return;
+    }
+
+    const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+    if (!token) {
+      toast.error("Please log in to export marks");
+      return;
+    }
+
+    try {
+      const url = new URL(`${API_BASE_URL}/api/marks/export`);
+      url.searchParams.append('subjectId', selectedSubject);
+      url.searchParams.append('examType', selectedExamType);
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `marks_${selectedSubject}_${selectedExamType}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+        toast.success("Marks exported successfully!");
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || "Failed to export marks");
+      }
+    } catch (error) {
+      console.error("Error exporting marks:", error);
+      toast.error("Error exporting marks");
     }
   };
 
@@ -540,18 +601,26 @@ export default function MarksPage() {
                     </CardDescription>
                   </div>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                    <Button
-                      onClick={saveMarks}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Marks
-                    </Button>
+                    {isEditing ? (
+                      <Button
+                        onClick={saveMarks}
+                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save All
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => setIsEditing(true)}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit All
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
-                      onClick={() =>
-                        window.location.href = `${API_BASE_URL}/api/marks/export?subjectId=${selectedSubject}&examType=${selectedExamType}`
-                      }
+                      onClick={exportMarks}
                       className="border-gray-300 hover:bg-gray-100"
                     >
                       <Download className="h-4 w-4 mr-2" />
@@ -592,8 +661,9 @@ export default function MarksPage() {
                                 max={maxMarks || 100}
                                 value={currentMark?.scoredMarks ?? ""}
                                 onChange={(e) => handleMarkChange(student._id, e.target.value)}
-                                className="w-24 h-10"
+                                className={`w-24 h-10 ${!isEditing && 'bg-gray-50'}`}
                                 placeholder="0"
+                                disabled={!isEditing}
                               />
                               <span className="text-gray-500 text-sm">/ {maxMarks}</span>
                             </div>
@@ -619,7 +689,8 @@ export default function MarksPage() {
                               value={currentMark?.comments || ""}
                               onChange={(e) => handleCommentChange(student._id, e.target.value)}
                               placeholder="Optional comments..."
-                              className="h-10 w-full"
+                              className={`h-10 w-full ${!isEditing && 'bg-gray-50'}`}
+                              disabled={!isEditing}
                             />
                           </TableCell>
                           <TableCell>

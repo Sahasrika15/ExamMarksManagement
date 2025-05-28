@@ -17,7 +17,7 @@ const auth = async (req, res, next) => {
     }
 
     // Attach user info to request
-    req.user = decoded; // decoded contains { userId, role }
+    req.user = decoded; // decoded contains { userId, role, email, name }
     next();
   } catch (error) {
     console.error('Auth middleware error:', error.message);

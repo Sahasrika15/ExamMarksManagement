@@ -143,7 +143,8 @@ const exportMarks = async (req, res) => {
 
     const marks = await Mark.find({ subjectId, examType })
       .populate('studentId', 'name rollNumber')
-      .populate('subjectId', 'name code')
+      .populate('subjectId', 'name code maxMarks')
+      .sort({ 'studentId.rollNumber': 1 })
       .lean();
 
     // Create Excel workbook
