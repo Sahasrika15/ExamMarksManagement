@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,12 +24,19 @@ interface Student {
   branch: string;
   year: number;
   semester: number;
+  email: string;
+  phone: string;
 }
 
 interface Subject {
   _id: string;
   name: string;
   code: string;
+  branch: string;
+  year: number;
+  semester: number;
+  credits: number;
+  type: "Theory" | "Laboratory" | "Project";
 }
 
 interface Mark {
@@ -39,6 +46,9 @@ interface Mark {
   examType: string;
   maxMarks: number;
   scoredMarks: number;
+  comments: string;
+  enteredBy: string;
+  enteredAt: string;
   student: Student;
   subject: Subject;
 }
@@ -47,12 +57,12 @@ export default function ReportsPage() {
   const [marks, setMarks] = useState<Mark[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Changed initial state to false
 
   const [selectedBatch, setSelectedBatch] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
-  const [selectedYear, setSelectedYear] = useState("all"); // Updated from ""
-  const [selectedSemester, setSelectedSemester] = useState("all"); // Updated from ""
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedSemester, setSelectedSemester] = useState("all");
   const [selectedStudent, setSelectedStudent] = useState("all");
   const [selectedSubject, setSelectedSubject] = useState("all");
   const [selectedExamType, setSelectedExamType] = useState("all");
@@ -69,11 +79,10 @@ export default function ReportsPage() {
     { value: "External Lab", label: "External Lab (Lab)" },
   ];
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedBatch, selectedBranch, selectedYear, selectedSemester, selectedStudent, selectedSubject, selectedExamType]);
+  // Debounce timer reference
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
@@ -92,27 +101,63 @@ export default function ReportsPage() {
       if (selectedSubject !== "all") queryParams.append("subjectId", selectedSubject);
       if (selectedExamType !== "all") queryParams.append("examType", selectedExamType);
 
+      console.log("Fetching data with params:", queryParams.toString());
+
       const response = await fetch(`${API_BASE_URL}/api/reports?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (response.ok) {
-        const { marks, students, subjects } = await response.json();
-        setMarks(marks);
-        setStudents(students);
-        setSubjects(subjects);
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to fetch reports");
+
+      console.log("Response status:", response.status, "Redirected:", response.redirected);
+
+      if (response.redirected) {
+        console.error("API call resulted in a redirect:", response.url);
+        toast.error("Unexpected redirect occurred. Please check the API.");
+        setIsLoading(false);
+        return;
       }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Fetch error:", errorData);
+        toast.error(errorData.message || "Failed to fetch reports");
+        setIsLoading(false);
+        return;
+      }
+
+      const { marks, students, subjects } = await response.json();
+      console.log("Fetched data:", { marks, students, subjects });
+      setMarks(marks);
+      setStudents(students);
+      setSubjects(subjects);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Error fetching reports data");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedBatch, selectedBranch, selectedYear, selectedSemester, selectedStudent, selectedSubject, selectedExamType]);
+
+  // Debounced fetch function
+  const debouncedFetchData = useCallback(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      fetchData();
+    }, 500); // 500ms debounce delay
+  }, [fetchData]);
+
+  useEffect(() => {
+    debouncedFetchData();
+    // Cleanup on unmount
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [debouncedFetchData]);
 
   const getFilteredMarks = () => {
     return marks; // Backend handles filtering
@@ -159,7 +204,7 @@ export default function ReportsPage() {
     };
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
     if (!token) {
       toast.error("Please log in to export reports");
@@ -175,20 +220,38 @@ export default function ReportsPage() {
     if (selectedSubject !== "all") queryParams.append("subjectId", selectedSubject);
     if (selectedExamType !== "all") queryParams.append("examType", selectedExamType);
 
-    window.location.href = `${API_BASE_URL}/api/reports/export?${queryParams.toString()}&token=${token}`;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reports/export?${queryParams.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toast.error(errorData.message || "Failed to export reports");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "reports.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Report exported successfully");
+    } catch (error) {
+      console.error("Error exporting report:", error);
+      toast.error("Error exporting report");
+    }
   };
 
   const filteredStudents = students;
   const filteredSubjects = subjects;
   const statistics = getClassStatistics();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-        <div className="text-center text-gray-800">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
@@ -216,7 +279,13 @@ export default function ReportsPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                  <Select
+                    value={selectedBatch}
+                    onValueChange={(value) => {
+                      console.log("Selected Batch:", value);
+                      setSelectedBatch(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Batches" />
                     </SelectTrigger>
@@ -231,7 +300,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                  <Select
+                    value={selectedBranch}
+                    onValueChange={(value) => {
+                      console.log("Selected Branch:", value);
+                      setSelectedBranch(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Branches" />
                     </SelectTrigger>
@@ -246,7 +321,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <Select
+                    value={selectedYear}
+                    onValueChange={(value) => {
+                      console.log("Selected Year:", value);
+                      setSelectedYear(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Years" />
                     </SelectTrigger>
@@ -260,7 +341,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                  <Select
+                    value={selectedSemester}
+                    onValueChange={(value) => {
+                      console.log("Selected Semester:", value);
+                      setSelectedSemester(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Semesters" />
                     </SelectTrigger>
@@ -272,7 +359,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                  <Select
+                    value={selectedStudent}
+                    onValueChange={(value) => {
+                      console.log("Selected Student:", value);
+                      setSelectedStudent(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Students" />
                     </SelectTrigger>
@@ -287,7 +380,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                  <Select
+                    value={selectedSubject}
+                    onValueChange={(value) => {
+                      console.log("Selected Subject:", value);
+                      setSelectedSubject(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Subjects" />
                     </SelectTrigger>
@@ -302,7 +401,13 @@ export default function ReportsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Select value={selectedExamType} onValueChange={setSelectedExamType}>
+                  <Select
+                    value={selectedExamType}
+                    onValueChange={(value) => {
+                      console.log("Selected Exam Type:", value);
+                      setSelectedExamType(value);
+                    }}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="All Exam Types" />
                     </SelectTrigger>
@@ -316,6 +421,11 @@ export default function ReportsPage() {
                   </Select>
                 </div>
               </div>
+              {isLoading && (
+                <div className="mt-4 text-center text-gray-600">
+                  Loading data...
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -363,7 +473,10 @@ export default function ReportsPage() {
                 </div>
                 <Button
                   variant="outline"
-                  onClick={handleExport}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleExport();
+                  }}
                   className="border-gray-300 hover:bg-gray-100"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -381,231 +494,27 @@ export default function ReportsPage() {
                 </TabsList>
 
                 <TabsContent value="overview" className="mt-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="font-bold">Student</TableHead>
-                        <TableHead className="font-bold">Roll Number</TableHead>
-                        <TableHead className="font-bold">Subject</TableHead>
-                        <TableHead className="font-bold">Exam Type</TableHead>
-                        <TableHead className="font-bold">Marks</TableHead>
-                        <TableHead className="font-bold">Percentage</TableHead>
-                        <TableHead className="font-bold">Grade</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {getFilteredMarks().slice(0, 5).map((mark) => {
-                        const percentage = (mark.scoredMarks / mark.maxMarks) * 100;
-                        const grade =
-                          percentage >= 90
-                            ? "A+"
-                            : percentage >= 80
-                            ? "A"
-                            : percentage >= 70
-                            ? "B+"
-                            : percentage >= 60
-                            ? "B"
-                            : percentage >= 50
-                            ? "C"
-                            : "F";
-
-                        return (
-                          <TableRow key={mark._id}>
-                            <TableCell className="font-semibold">{mark.student.name}</TableCell>
-                            <TableCell>{mark.student.rollNumber}</TableCell>
-                            <TableCell>
-                              {mark.subject.code} - {mark.subject.name}
-                            </TableCell>
-                            <TableCell>{mark.examType}</TableCell>
-                            <TableCell>
-                              {mark.scoredMarks} / {mark.maxMarks}
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  percentage >= 90
-                                    ? "bg-green-100 text-green-700"
-                                    : percentage >= 75
-                                    ? "bg-blue-100 text-blue-600"
-                                    : percentage >= 60
-                                    ? "bg-yellow-100 text-yellow-600"
-                                    : percentage >= 50
-                                    ? "bg-orange-100 text-orange-600"
-                                    : "bg-red-100 text-red-600"
-                                }`}
-                              >
-                                {percentage.toFixed(2)}%
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-semibold">{grade}</span>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-
-                <TabsContent value="student" className="mt-6">
-                  {selectedStudent !== "all" ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="font-bold">Subject</TableHead>
-                          <TableHead className="font-bold">Exam Type</TableHead>
-                          <TableHead className="font-bold">Marks</TableHead>
-                          <TableHead className="font-bold">Percentage</TableHead>
-                          <TableHead className="font-bold">Grade</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getStudentReport().map((mark) => {
-                          const percentage = Number.parseFloat(mark.percentage);
-                          const grade =
-                            percentage >= 90
-                              ? "A+"
-                              : percentage >= 80
-                              ? "A"
-                              : percentage >= 70
-                              ? "B+"
-                              : percentage >= 60
-                              ? "B"
-                              : percentage >= 50
-                              ? "C"
-                              : "F";
-
-                          return (
-                            <TableRow key={mark._id}>
-                              <TableCell>
-                                {mark.subjectCode} - {mark.subjectName}
-                              </TableCell>
-                              <TableCell>{mark.examType}</TableCell>
-                              <TableCell>
-                                {mark.scoredMarks} / {mark.maxMarks}
-                              </TableCell>
-                              <TableCell>
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    percentage >= 90
-                                      ? "bg-green-100 text-green-700"
-                                      : percentage >= 75
-                                      ? "bg-blue-100 text-blue-600"
-                                      : percentage >= 60
-                                      ? "bg-yellow-100 text-yellow-600"
-                                      : percentage >= 50
-                                      ? "bg-orange-100 text-orange-600"
-                                      : "bg-red-100 text-red-600"
-                                  }`}
-                                >
-                                  {mark.percentage}%
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-semibold">{grade}</span>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center">
-                      <div className="py-16 text-gray-600">
-                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
-                        <p className="text-gray-500">Select a student to view their detailed report.</p>
-                      </div>
+                  {marks.length === 0 && !isLoading ? (
+                    <div className="text-center py-16 text-gray-600">
+                      <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                      <p className="text-gray-500">No data available for the selected filters.</p>
                     </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="subject" className="mt-6">
-                  {selectedSubject !== "all" ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="font-bold">Student</TableHead>
-                          <TableHead className="font-bold">Roll Number</TableHead>
-                          <TableHead className="font-bold">Exam Type</TableHead>
-                          <TableHead className="font-bold">Marks</TableHead>
-                          <TableHead className="font-bold">Percentage</TableHead>
-                          <TableHead className="font-bold">Grade</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getSubjectReport().map((mark) => {
-                          const percentage = Number.parseFloat(mark.percentage);
-                          const grade =
-                            percentage >= 90
-                              ? "A+"
-                              : percentage >= 80
-                              ? "A"
-                              : percentage >= 70
-                              ? "B+"
-                              : percentage >= 60
-                              ? "B"
-                              : percentage >= 50
-                              ? "C"
-                              : "F";
-
-                          return (
-                            <TableRow key={mark._id}>
-                              <TableCell className="font-semibold">{mark.studentName}</TableCell>
-                              <TableCell>{mark.rollNumber}</TableCell>
-                              <TableCell>{mark.examType}</TableCell>
-                              <TableCell>
-                                {mark.scoredMarks} / {mark.maxMarks}
-                              </TableCell>
-                              <TableCell>
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    percentage >= 90
-                                      ? "bg-green-100 text-green-700"
-                                      : percentage >= 75
-                                      ? "bg-blue-100 text-blue-600"
-                                      : percentage >= 60
-                                      ? "bg-yellow-100 text-yellow-600"
-                                      : percentage >= 50
-                                      ? "bg-orange-100 text-orange-600"
-                                      : "bg-red-100 text-red-600"
-                                  }`}
-                                >
-                                  {mark.percentage}%
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-semibold">{grade}</span>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
                   ) : (
-                    <div className="text-center">
-                      <div className="py-16 text-gray-600">
-                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
-                        <p className="text-sm text-gray-500">Select a subject to view its detailed analysis.</p>
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="exam" className="mt-6">
-                  {selectedExamType !== "all" ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead className="font-bold">Student</TableHead>
                           <TableHead className="font-bold">Roll Number</TableHead>
                           <TableHead className="font-bold">Subject</TableHead>
+                          <TableHead className="font-bold">Exam Type</TableHead>
                           <TableHead className="font-bold">Marks</TableHead>
                           <TableHead className="font-bold">Percentage</TableHead>
                           <TableHead className="font-bold">Grade</TableHead>
+                          <TableHead className="font-bold">Comments</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {getFilteredMarks().map((mark) => {
+                        {getFilteredMarks().slice(0, 5).map((mark) => {
                           const percentage = (mark.scoredMarks / mark.maxMarks) * 100;
                           const grade =
                             percentage >= 90
@@ -627,6 +536,7 @@ export default function ReportsPage() {
                               <TableCell>
                                 {mark.subject.code} - {mark.subject.name}
                               </TableCell>
+                              <TableCell>{mark.examType}</TableCell>
                               <TableCell>
                                 {mark.scoredMarks} / {mark.maxMarks}
                               </TableCell>
@@ -650,11 +560,250 @@ export default function ReportsPage() {
                               <TableCell>
                                 <span className="font-semibold">{grade}</span>
                               </TableCell>
+                              <TableCell>{mark.comments || "N/A"}</TableCell>
                             </TableRow>
                           );
                         })}
                       </TableBody>
                     </Table>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="student" className="mt-6">
+                  {selectedStudent !== "all" ? (
+                    getStudentReport().length === 0 && !isLoading ? (
+                      <div className="text-center py-16 text-gray-600">
+                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                        <p className="text-gray-500">No data available for the selected student.</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-bold">Subject</TableHead>
+                            <TableHead className="font-bold">Exam Type</TableHead>
+                            <TableHead className="font-bold">Marks</TableHead>
+                            <TableHead className="font-bold">Percentage</TableHead>
+                            <TableHead className="font-bold">Grade</TableHead>
+                            <TableHead className="font-bold">Comments</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getStudentReport().map((mark) => {
+                            const percentage = Number.parseFloat(mark.percentage);
+                            const grade =
+                              percentage >= 90
+                                ? "A+"
+                                : percentage >= 80
+                                ? "A"
+                                : percentage >= 70
+                                ? "B+"
+                                : percentage >= 60
+                                ? "B"
+                                : percentage >= 50
+                                ? "C"
+                                : "F";
+
+                            return (
+                              <TableRow key={mark._id}>
+                                <TableCell>
+                                  {mark.subjectCode} - {mark.subjectName}
+                                </TableCell>
+                                <TableCell>{mark.examType}</TableCell>
+                                <TableCell>
+                                  {mark.scoredMarks} / {mark.maxMarks}
+                                </TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                      percentage >= 90
+                                        ? "bg-green-100 text-green-700"
+                                        : percentage >= 75
+                                        ? "bg-blue-100 text-blue-600"
+                                        : percentage >= 60
+                                        ? "bg-yellow-100 text-yellow-600"
+                                        : percentage >= 50
+                                        ? "bg-orange-100 text-orange-600"
+                                        : "bg-red-100 text-red-600"
+                                    }`}
+                                  >
+                                    {mark.percentage}%
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-semibold">{grade}</span>
+                                </TableCell>
+                                <TableCell>{mark.comments || "N/A"}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )
+                  ) : (
+                    <div className="text-center">
+                      <div className="py-16 text-gray-600">
+                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                        <p className="text-gray-500">Select a student to view their detailed report.</p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="subject" className="mt-6">
+                  {selectedSubject !== "all" ? (
+                    getSubjectReport().length === 0 && !isLoading ? (
+                      <div className="text-center py-16 text-gray-600">
+                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                        <p className="text-gray-500">No data available for the selected subject.</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-bold">Student</TableHead>
+                            <TableHead className="font-bold">Roll Number</TableHead>
+                            <TableHead className="font-bold">Exam Type</TableHead>
+                            <TableHead className="font-bold">Marks</TableHead>
+                            <TableHead className="font-bold">Percentage</TableHead>
+                            <TableHead className="font-bold">Grade</TableHead>
+                            <TableHead className="font-bold">Comments</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getSubjectReport().map((mark) => {
+                            const percentage = Number.parseFloat(mark.percentage);
+                            const grade =
+                              percentage >= 90
+                                ? "A+"
+                                : percentage >= 80
+                                ? "A"
+                                : percentage >= 70
+                                ? "B+"
+                                : percentage >= 60
+                                ? "B"
+                                : percentage >= 50
+                                ? "C"
+                                : "F";
+
+                            return (
+                              <TableRow key={mark._id}>
+                                <TableCell className="font-semibold">{mark.studentName}</TableCell>
+                                <TableCell>{mark.rollNumber}</TableCell>
+                                <TableCell>{mark.examType}</TableCell>
+                                <TableCell>
+                                  {mark.scoredMarks} / {mark.maxMarks}
+                                </TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                      percentage >= 90
+                                        ? "bg-green-100 text-green-700"
+                                        : percentage >= 75
+                                        ? "bg-blue-100 text-blue-600"
+                                        : percentage >= 60
+                                        ? "bg-yellow-100 text-yellow-600"
+                                        : percentage >= 50
+                                        ? "bg-orange-100 text-orange-600"
+                                        : "bg-red-100 text-red-600"
+                                    }`}
+                                  >
+                                    {mark.percentage}%
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-semibold">{grade}</span>
+                                </TableCell>
+                                <TableCell>{mark.comments || "N/A"}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )
+                  ) : (
+                    <div className="text-center">
+                      <div className="py-16 text-gray-600">
+                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                        <p className="text-sm text-gray-500">Select a subject to view its detailed analysis.</p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="exam" className="mt-6">
+                  {selectedExamType !== "all" ? (
+                    getFilteredMarks().length === 0 && !isLoading ? (
+                      <div className="text-center py-16 text-gray-600">
+                        <FileText className="text-4xl mx-auto mb-4 opacity-60" />
+                        <p className="text-gray-500">No data available for the selected exam type.</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="font-bold">Student</TableHead>
+                            <TableHead className="font-bold">Roll Number</TableHead>
+                            <TableHead className="font-bold">Subject</TableHead>
+                            <TableHead className="font-bold">Marks</TableHead>
+                            <TableHead className="font-bold">Percentage</TableHead>
+                            <TableHead className="font-bold">Grade</TableHead>
+                            <TableHead className="font-bold">Comments</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getFilteredMarks().map((mark) => {
+                            const percentage = (mark.scoredMarks / mark.maxMarks) * 100;
+                            const grade =
+                              percentage >= 90
+                                ? "A+"
+                                : percentage >= 80
+                                ? "A"
+                                : percentage >= 70
+                                ? "B+"
+                                : percentage >= 60
+                                ? "B"
+                                : percentage >= 50
+                                ? "C"
+                                : "F";
+
+                            return (
+                              <TableRow key={mark._id}>
+                                <TableCell className="font-semibold">{mark.student.name}</TableCell>
+                                <TableCell>{mark.student.rollNumber}</TableCell>
+                                <TableCell>
+                                  {mark.subject.code} - {mark.subject.name}
+                                </TableCell>
+                                <TableCell>
+                                  {mark.scoredMarks} / {mark.maxMarks}
+                                </TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                      percentage >= 90
+                                        ? "bg-green-100 text-green-700"
+                                        : percentage >= 75
+                                        ? "bg-blue-100 text-blue-600"
+                                        : percentage >= 60
+                                        ? "bg-yellow-100 text-yellow-600"
+                                        : percentage >= 50
+                                        ? "bg-orange-100 text-orange-600"
+                                        : "bg-red-100 text-red-600"
+                                    }`}
+                                  >
+                                    {percentage.toFixed(2)}%
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-semibold">{grade}</span>
+                                </TableCell>
+                                <TableCell>{mark.comments || "N/A"}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )
                   ) : (
                     <div className="text-center">
                       <div className="py-16 text-gray-600">
