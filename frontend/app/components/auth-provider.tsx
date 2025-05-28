@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   // Base URL for the Express backend
-  const API_BASE_URL = "https://exammarksmanagement.onrender.com/"
+  const API_BASE_URL = "https://exammarksmanagement.onrender.com"
 
   useEffect(() => {
     const validateToken = async () => {

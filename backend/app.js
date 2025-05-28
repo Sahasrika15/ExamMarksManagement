@@ -42,7 +42,7 @@ initializeServer();
 
 // Middleware
 app.use(cors({
-  origin: 'https://edumarks.vercel.app', // allow only your frontend domain
+  origin: ['https://edumarks.vercel.app','https://localhost:3000'], // allow only your frontend domain
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // allowed HTTP methods
   credentials: true // if you use cookies or auth headers
 }));
@@ -71,5 +71,5 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
