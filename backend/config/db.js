@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // Configure Mongoose with reconnection settings
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/academic_management', {
+    await mongoose.connect(process.env.MONGO_URI, {
     });
 
     console.log('MongoDB connected successfully');

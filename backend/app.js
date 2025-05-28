@@ -41,7 +41,12 @@ const initializeServer = async () => {
 initializeServer();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'https://edumarks.vercel.app', // allow only your frontend domain
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // allowed HTTP methods
+  credentials: true // if you use cookies or auth headers
+}));
+
 app.use(express.json());
 
 // Routes

@@ -27,7 +27,7 @@ import Link from "next/link";
 import { useAuth } from "../components/auth-provider";
 
 // Base URL for the Express backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const API_BASE_URL = "https://exammarksmanagement.onrender.com";
 
 export default function LoginPage() {
   const [loginType, setLoginType] = useState("faculty");

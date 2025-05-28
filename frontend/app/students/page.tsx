@@ -23,7 +23,7 @@ import { useAuth } from "../components/auth-provider"
 import { useRouter } from "next/navigation"
 
 // Base URL for the Express backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
+const API_BASE_URL = "https://exammarksmanagement.onrender.com/"
 
 interface Student {
   _id?: string
