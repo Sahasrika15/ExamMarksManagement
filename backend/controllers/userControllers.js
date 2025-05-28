@@ -26,32 +26,22 @@ const loginUser = async (req, res) => {
     // Find user by email and role
     const user = await User.findOne({ email: email.toLowerCase(), role: loginType });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or role' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials or role' });
     }
 
     // Verify password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid password' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Additional validation for faculty and HOD
-    if (loginType === 'faculty') {
-      if (!facultyId || !department) {
-        return res.status(400).json({ success: false, message: 'Faculty ID and department are required' });
-      }
-      if (user.facultyId !== facultyId || user.department !== department) {
-        return res.status(401).json({ success: false, message: 'Invalid faculty ID or department' });
-      }
+    if (loginType === 'faculty' && (user.facultyId !== facultyId || user.department !== department)) {
+      return res.status(401).json({ success: false, message: 'Invalid faculty ID or department' });
     }
 
-    if (loginType === 'hod') {
-      if (!department) {
-        return res.status(400).json({ success: false, message: 'Department is required for HOD' });
-      }
-      if (user.department !== department) {
-        return res.status(401).json({ success: false, message: 'Invalid department for HOD' });
-      }
+    if (loginType === 'hod' && user.department !== department) {
+      return res.status(401).json({ success: false, message: 'Invalid department for HOD' });
     }
 
     // Generate JWT token
