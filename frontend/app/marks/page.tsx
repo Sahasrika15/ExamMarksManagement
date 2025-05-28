@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Award, Save, Download, Trash2, Edit2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { useAuth } from "../components/auth-provider";
+import { useRouter } from "next/navigation";
 
 // Dynamically import Navbar to avoid SSR issues
 const Navbar = dynamic(() => import("@/app/components/navbar"), { ssr: false });
@@ -55,6 +57,9 @@ interface Mark {
 }
 
 export default function MarksPage() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -78,25 +83,44 @@ export default function MarksPage() {
   const examTypesTheory = ["CT", "Mid 1", "Mid 2", "Semester Exam"];
   const examTypesLab = ["Internal Lab", "External Lab"];
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, authLoading, router]);
+
   useEffect(() => {
     const fetchData = async () => {
+      if (!isAuthenticated) return;
+
       try {
         const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
         if (!token) {
           toast.error("Please log in to access marks data");
+          router.push("/login");
           setIsLoading(false);
           return;
         }
 
         const [studentsRes, subjectsRes, examsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/students`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { 
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}` 
+            },
           }),
           fetch(`${API_BASE_URL}/api/subjects`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { 
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}` 
+            },
           }),
           fetch(`${API_BASE_URL}/api/exams`, {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { 
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}` 
+            },
           }),
         ]);
 
@@ -117,8 +141,10 @@ export default function MarksPage() {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     filterStudents();
@@ -129,7 +155,7 @@ export default function MarksPage() {
   }, [subjects, selectedBranch, selectedYear, selectedSemester]);
 
   useEffect(() => {
-    if (selectedSubject && selectedExamType) {
+    if (selectedSubject && selectedExamType && isAuthenticated) {
       fetchExistingMarks();
       const exam = exams.find(
         (e) => e.subjectId === selectedSubject && e.type === selectedExamType
@@ -140,7 +166,7 @@ export default function MarksPage() {
       setMarks({});
       setExistingMarks([]);
     }
-  }, [selectedSubject, selectedExamType, exams]);
+  }, [selectedSubject, selectedExamType, exams, isAuthenticated]);
 
   const fetchExistingMarks = async () => {
     if (!selectedSubject || !selectedExamType) return;
@@ -149,13 +175,17 @@ export default function MarksPage() {
       const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
       if (!token) {
         toast.error("Please log in to fetch marks");
+        router.push("/login");
         return;
       }
 
       const response = await fetch(
         `${API_BASE_URL}/api/marks?subjectId=${selectedSubject}&examType=${selectedExamType}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}` 
+          },
         }
       );
       if (response.ok) {
@@ -181,6 +211,10 @@ export default function MarksPage() {
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Failed to fetch marks");
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.");
+          router.push("/login");
+        }
         setMarks({});
       }
     } catch (error) {
@@ -271,6 +305,7 @@ export default function MarksPage() {
     const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
     if (!token) {
       toast.error("Please log in to save marks");
+      router.push("/login");
       return;
     }
 
@@ -310,6 +345,10 @@ export default function MarksPage() {
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Error saving marks");
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.");
+          router.push("/login");
+        }
       }
     } catch (error) {
       console.error("Error saving marks:", error);
@@ -321,6 +360,7 @@ export default function MarksPage() {
     const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
     if (!token) {
       toast.error("Please log in to update marks");
+      router.push("/login");
       return;
     }
 
@@ -349,6 +389,10 @@ export default function MarksPage() {
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Error updating mark");
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.");
+          router.push("/login");
+        }
       }
     } catch (error) {
       console.error("Error updating mark:", error);
@@ -360,6 +404,7 @@ export default function MarksPage() {
     const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
     if (!token) {
       toast.error("Please log in to delete marks");
+      router.push("/login");
       return;
     }
 
@@ -367,6 +412,7 @@ export default function MarksPage() {
       const response = await fetch(`${API_BASE_URL}/api/marks/${markId}`, {
         method: "DELETE",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -377,6 +423,10 @@ export default function MarksPage() {
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Error deleting mark");
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.");
+          router.push("/login");
+        }
       }
     } catch (error) {
       console.error("Error deleting mark:", error);
@@ -393,6 +443,7 @@ export default function MarksPage() {
     const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
     if (!token) {
       toast.error("Please log in to export marks");
+      router.push("/login");
       return;
     }
 
@@ -404,6 +455,7 @@ export default function MarksPage() {
       const response = await fetch(url.toString(), {
         method: "GET",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
           Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         },
@@ -423,6 +475,10 @@ export default function MarksPage() {
       } else {
         const errorData = await response.json();
         toast.error(errorData.message || "Failed to export marks");
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.");
+          router.push("/login");
+        }
       }
     } catch (error) {
       console.error("Error exporting marks:", error);
@@ -433,12 +489,16 @@ export default function MarksPage() {
   const canShowMarksTable =
     selectedBatch && selectedBranch && selectedYear && selectedSemester && selectedSubject && selectedExamType;
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50">
         <div className="text-center text-gray-800">Loading...</div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Redirect will handle navigation to login
   }
 
   return (
@@ -606,7 +666,7 @@ export default function MarksPage() {
                         onClick={saveMarks}
                         className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                       >
-                        <Save className="h-4 w-4 mr-2" />
+                        <Save className="h-4 w-4 mr-2"></Save>
                         Save All
                       </Button>
                     ) : (
@@ -614,7 +674,7 @@ export default function MarksPage() {
                         onClick={() => setIsEditing(true)}
                         className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                       >
-                        <Edit2 className="h-4 w-4 mr-2" />
+                        <Edit2 className="h-4 w-4 mr-2"></Edit2>
                         Edit All
                       </Button>
                     )}
@@ -623,7 +683,7 @@ export default function MarksPage() {
                       onClick={exportMarks}
                       className="border-gray-300 hover:bg-gray-100"
                     >
-                      <Download className="h-4 w-4 mr-2" />
+                      <Download className="h-4 w-4 mr-2"></Download>
                       Export to Excel
                     </Button>
                   </div>
@@ -654,14 +714,12 @@ export default function MarksPage() {
                           <TableCell className="font-mono text-sm">{student.rollNumber}</TableCell>
                           <TableCell className="font-medium">{student.name}</TableCell>
                           <TableCell>
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
                               <Input
                                 type="number"
-                                min="0"
-                                max={maxMarks || 100}
-                                value={currentMark?.scoredMarks ?? ""}
-                                onChange={(e) => handleMarkChange(student._id, e.target.value)}
-                                className={`w-24 h-10 ${!isEditing && 'bg-gray-50'}`}
+                                value={currentMark?.scoredMarks?.toFixed(0) ?? ""}
+                              onChange={(e) => handleMarkChange(student._id, e.target.value)}
+                              className={`w-24 h-10 ${!isEditing && 'bg-gray-50'}`}
                                 placeholder="0"
                                 disabled={!isEditing}
                               />
@@ -673,12 +731,12 @@ export default function MarksPage() {
                               className={`px-3 py-1 rounded-full text-xs font-semibold ${Number.parseFloat(percentage) >= 90
                                   ? "bg-green-100 text-green-800"
                                   : Number.parseFloat(percentage) >= 75
-                                    ? "bg-blue-100 text-blue-800"
-                                    : Number.parseFloat(percentage) >= 60
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : Number.parseFloat(percentage) >= 40
-                                        ? "bg-orange-100 text-orange-800"
-                                        : "bg-red-100 text-red-800"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : Number.parseFloat(percentage) >= 60
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : Number.parseFloat(percentage) >= 40
+                                  ? "bg-orange-100 text-orange-800"
+                                  : "bg-red-100 text-red-800"
                                 }`}
                             >
                               {percentage} %
@@ -688,8 +746,8 @@ export default function MarksPage() {
                             <Input
                               value={currentMark?.comments || ""}
                               onChange={(e) => handleCommentChange(student._id, e.target.value)}
-                              placeholder="Optional comments..."
-                              className={`h-10 w-full ${!isEditing && 'bg-gray-50'}`}
+                              placeholder="Comments"
+                              className={`h-10 w-full rounded-md border border-gray-3001 ${!isEditing && 'bg-gray-50'}`}
                               disabled={!isEditing}
                             />
                           </TableCell>
@@ -703,7 +761,7 @@ export default function MarksPage() {
                                     onClick={() => updateMark(currentMark._id!, currentMark)}
                                     className="h-10 px-3"
                                   >
-                                    <Edit2 className="h-4 w-4 mr-2" />
+                                    <Edit2 className="h-4 w-4 mr-2"></Edit2>
                                     Update
                                   </Button>
                                   <Button
@@ -712,7 +770,7 @@ export default function MarksPage() {
                                     onClick={() => deleteMark(currentMark._id!)}
                                     className="h-10 px-3"
                                   >
-                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    <Trash2 className="h-4 w-4 mr-2"></Trash2>
                                     Delete
                                   </Button>
                                 </>
@@ -732,9 +790,9 @@ export default function MarksPage() {
             <Card>
               <CardContent className="py-16 text-center">
                 <div className="text-gray-600">
-                  <Award className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                  <Award className="h-16 w-16 mx-auto mb-4 opacity-50"></Award>
                   <h3 className="text-xl font-semibold mb-3">No Configuration Selected</h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm font-gray-500">
                     Please select a batch, branch, year, semester, subject, and exam type to manage marks.
                   </p>
                 </div>

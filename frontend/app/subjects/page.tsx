@@ -5,7 +5,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
 import {
   Dialog,
   DialogContent,
@@ -16,12 +18,15 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, BookOpen, Edit, Trash2 } from "lucide-react"
 import { toast, Toaster } from "sonner"
-import Navbar from "@/app/components/navbar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import Navbar from "@/app/components/navbar"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+import { useAuth } from "../components/auth-provider"
+import { useRouter } from "next/navigation"
 
 // Base URL for the Express API
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 
 interface Subject {
   _id?: string
@@ -35,6 +40,9 @@ interface Subject {
 }
 
 export default function SubjectsPage() {
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([])
   const [filterBranch, setFilterBranch] = useState("")
@@ -54,9 +62,19 @@ export default function SubjectsPage() {
   const branches = ["CSE", "ECE", "EEE", "MECH", "CIVIL", "IT"]
   const subjectTypes = ["Theory", "Laboratory", "Project"]
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    fetchSubjects()
-  }, [])
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  // Fetch subjects only if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSubjects()
+    }
+  }, [isAuthenticated])
 
   useEffect(() => {
     filterSubjects()
@@ -64,23 +82,43 @@ export default function SubjectsPage() {
 
   const fetchSubjects = async () => {
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
+      if (!token) {
+        toast.error("Please log in to view subjects")
+        router.push("/login")
+        return
+      }
+
+      console.log('Fetching subjects from:', `${API_BASE_URL}/api/subjects`)
+      console.log('Token:', token)
       const response = await fetch(`${API_BASE_URL}/api/subjects`, {
         headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
-      });
+      })
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers.get('Content-Type'))
+      const text = await response.text()
+      console.log('Response body:', text)
       if (response.ok) {
-        const data = await response.json();
-        setSubjects(data);
+        const data = JSON.parse(text)
+        setSubjects(data)
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to fetch subjects");
+        try {
+          const errorData = JSON.parse(text)
+          toast.error(errorData.message || "Failed to fetch subjects")
+          if (response.status === 401) {
+            toast.error("Session expired. Please log in again.")
+            router.push("/login")
+          }
+        } catch (jsonError) {
+          toast.error("Failed to fetch subjects: Invalid response format")
+        }
       }
     } catch (error) {
-      console.error("Error fetching subjects:", error);
-      toast.error("Error fetching subjects");
+      console.error("Error fetching subjects:", error)
+      toast.error("Error fetching subjects")
     }
   }
 
@@ -102,14 +140,15 @@ export default function SubjectsPage() {
     e.preventDefault()
 
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
       if (!token) {
-        toast.error("Please log in to perform this action");
-        return;
+        toast.error("Please log in to perform this action")
+        router.push("/login")
+        return
       }
 
-      const url = editingSubject ? `${API_BASE_URL}/api/subjects/admin/${editingSubject._id}` : `${API_BASE_URL}/api/subjects`;
-      const method = editingSubject ? "PUT" : "POST";
+      const url = editingSubject ? `${API_BASE_URL}/api/subjects/admin/${editingSubject._id}` : `${API_BASE_URL}/api/subjects`
+      const method = editingSubject ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
@@ -135,8 +174,12 @@ export default function SubjectsPage() {
         })
         fetchSubjects()
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         toast.error(errorData.message || "Error saving subject")
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.")
+          router.push("/login")
+        }
       }
     } catch (error) {
       console.error("Error:", error)
@@ -152,10 +195,11 @@ export default function SubjectsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
       if (!token) {
-        toast.error("Please log in to perform this action");
-        return;
+        toast.error("Please log in to perform this action")
+        router.push("/login")
+        return
       }
 
       const response = await fetch(`${API_BASE_URL}/api/subjects/${id}`, {
@@ -169,13 +213,27 @@ export default function SubjectsPage() {
         toast.success("Subject deleted successfully!")
         fetchSubjects()
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         toast.error(errorData.message || "Error deleting subject")
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.")
+          router.push("/login")
+        }
       }
     } catch (error) {
       console.error("Error:", error)
       toast.error("Error deleting subject")
     }
+  }
+
+  // Wait for auth state to resolve
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  // Don't render anything if not authenticated (redirect will happen via useEffect)
+  if (!isAuthenticated) {
+    return null
   }
 
   return (
@@ -259,7 +317,7 @@ export default function SubjectsPage() {
                           <Input
                             id="name"
                             value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
                             placeholder="e.g., Data Structures and Algorithms"
                             required
                           />
@@ -269,7 +327,7 @@ export default function SubjectsPage() {
                           <Input
                             id="code"
                             value={formData.code}
-                            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, code: e.target.value })}
                             placeholder="e.g., CS201"
                             required
                           />
@@ -353,7 +411,7 @@ export default function SubjectsPage() {
                               min="1"
                               max="6"
                               value={formData.credits}
-                              onChange={(e) => setFormData({ ...formData, credits: Number.parseInt(e.target.value) })}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, credits: Number.parseInt(e.target.value) })}
                               required
                             />
                           </div>

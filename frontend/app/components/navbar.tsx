@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,20 +9,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { LogOut, Settings } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-
-interface AppUser {
-  email: string
-  name: string
-  department: string
-  role: string
-  loginType: string
-}
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useAuth } from "../components/auth-provider";
 
 // Custom Logo Component
 const EduMarksLogo = ({ size = "h-8 w-8" }) => (
@@ -35,49 +28,40 @@ const EduMarksLogo = ({ size = "h-8 w-8" }) => (
           <stop offset="100%" stopColor="#EC4899" />
         </linearGradient>
         <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-          <feMerge> 
-            <feMergeNode in="coloredBlur"/>
-            <feMergeNode in="SourceGraphic"/>
+          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      <circle cx="20" cy="20" r="18" fill="none" stroke="url(#logoGradient)" strokeWidth="2" opacity="0.3"/>
-      <path d="M12 15 L20 10 L28 15 L28 25 L20 30 L12 25 Z" fill="url(#logoGradient)" filter="url(#glow)"/>
-      <circle cx="20" cy="20" r="3" fill="white"/>
-      <circle cx="16" cy="18" r="1" fill="white" opacity="0.8"/>
-      <circle cx="24" cy="18" r="1" fill="white" opacity="0.8"/>
-      <circle cx="20" cy="25" r="1" fill="white" opacity="0.6"/>
+      <circle cx="20" cy="20" r="18" fill="none" stroke="url(#logoGradient)" strokeWidth="2" opacity="0.3" />
+      <path d="M12 15 L20 10 L28 15 L28 25 L20 30 L12 25 Z" fill="url(#logoGradient)" filter="url(#glow)" />
+      <circle cx="20" cy="20" r="3" fill="white" />
+      <circle cx="16" cy="18" r="1" fill="white" opacity="0.8" />
+      <circle cx="24" cy="18" r="1" fill="white" opacity="0.8" />
+      <circle cx="20" cy="25" r="1" fill="white" opacity="0.6" />
     </svg>
   </div>
-)
+);
 
 export default function Navbar() {
-  const [user, setUser] = useState<AppUser | null>(null)
-  const router = useRouter()
-
-  useEffect(() => {
-    // Check for stored user data
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
-    }
-  }, [])
+  const { user, logout, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const handleLogout = () => {
-    localStorage.removeItem("user")
-    setUser(null)
-    toast.success("Logged out successfully")
-    router.push("/login")
-  }
+    logout();
+    toast.success("Logged out successfully");
+    router.push("/login");
+  };
 
   const getInitials = (name: string) => {
     return name
       .split(" ")
       .map((n) => n[0])
       .join("")
-      .toUpperCase()
-  }
+      .toUpperCase();
+  };
 
   return (
     <header className="bg-white/80 backdrop-blur-sm border-b shadow-sm sticky top-0 z-50">
@@ -107,7 +91,7 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center space-x-4">
-            {user ? (
+            {isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -123,16 +107,12 @@ export default function Navbar() {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">{user.name}</p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user.role} - {user.department}
+                        {user.role} - {user.department || "N/A"}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -151,5 +131,5 @@ export default function Navbar() {
         </div>
       </div>
     </header>
-  )
+  );
 }

@@ -19,9 +19,11 @@ import {
 import { Plus, Search, Edit, Trash2, Users } from "lucide-react"
 import { toast, Toaster } from "sonner"
 import Navbar from "../components/navbar"
+import { useAuth } from "../components/auth-provider"
+import { useRouter } from "next/navigation"
 
 // Base URL for the Express backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"
 
 interface Student {
   _id?: string
@@ -36,6 +38,9 @@ interface Student {
 }
 
 export default function StudentsPage() {
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+
   const [students, setStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -57,9 +62,18 @@ export default function StudentsPage() {
   const branches = ["CSE", "ECE", "EEE", "MECH", "CIVIL", "IT"]
   const batches = ["2021-2025", "2022-2026", "2023-2027", "2024-2028"]
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    fetchStudents()
-  }, [])
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchStudents()
+    }
+  }, [isAuthenticated])
 
   useEffect(() => {
     filterStudents()
@@ -67,33 +81,44 @@ export default function StudentsPage() {
 
   const fetchStudents = async () => {
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
-      console.log('Fetching students from:', `${API_BASE_URL}/api/students`);
-      console.log('Token:', token);
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
+      if (!token) {
+        toast.error("Please log in to view students")
+        router.push("/login")
+        return
+      }
+
+      console.log('Fetching students from:', `${API_BASE_URL}/api/students`)
+      console.log('Token:', token)
       const response = await fetch(`${API_BASE_URL}/api/students`, {
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${token}`,
         },
-      });
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers.get('Content-Type'));
-      const text = await response.text();
-      console.log('Response body:', text);
+      })
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers.get('Content-Type'))
+      const text = await response.text()
+      console.log('Response body:', text)
       if (response.ok) {
-        const data = JSON.parse(text);
-        setStudents(data);
+        const data = JSON.parse(text)
+        setStudents(data)
       } else {
         try {
-          const errorData = JSON.parse(text);
-          toast.error(errorData.message || "Failed to fetch students");
+          const errorData = JSON.parse(text)
+          toast.error(errorData.message || "Failed to fetch students")
+          if (response.status === 401) {
+            // Unauthorized, likely invalid token
+            toast.error("Session expired. Please log in again.")
+            router.push("/login")
+          }
         } catch (jsonError) {
-          toast.error("Failed to fetch students: Invalid response format");
+          toast.error("Failed to fetch students: Invalid response format")
         }
       }
     } catch (error) {
-      console.error("Error fetching students:", error);
-      toast.error("Error fetching students");
+      console.error("Error fetching students:", error)
+      toast.error("Error fetching students")
     }
   }
 
@@ -123,14 +148,15 @@ export default function StudentsPage() {
     e.preventDefault()
 
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
       if (!token) {
-        toast.error("Please log in to perform this action");
-        return;
+        toast.error("Please log in to perform this action")
+        router.push("/login")
+        return
       }
 
-      const url = editingStudent ? `${API_BASE_URL}/api/students/${editingStudent._id}` : `${API_BASE_URL}/api/students`;
-      const method = editingStudent ? "PUT" : "POST";
+      const url = editingStudent ? `${API_BASE_URL}/api/students/${editingStudent._id}` : `${API_BASE_URL}/api/students`
+      const method = editingStudent ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
@@ -157,8 +183,12 @@ export default function StudentsPage() {
         })
         fetchStudents()
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         toast.error(errorData.message || "Error saving student")
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.")
+          router.push("/login")
+        }
       }
     } catch (error) {
       console.error("Error:", error)
@@ -168,10 +198,11 @@ export default function StudentsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = typeof window !== 'undefined' ? (window.localStorage.getItem('token') || window.sessionStorage.getItem('token')) : null;
+      const token = typeof window !== "undefined" ? (window.localStorage.getItem("token") || window.sessionStorage.getItem("token")) : null
       if (!token) {
-        toast.error("Please log in to perform this action");
-        return;
+        toast.error("Please log in to perform this action")
+        router.push("/login")
+        return
       }
 
       const response = await fetch(`${API_BASE_URL}/api/students/${id}`, {
@@ -185,8 +216,12 @@ export default function StudentsPage() {
         toast.success("Student deleted successfully!")
         fetchStudents()
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json()
         toast.error(errorData.message || "Error deleting student")
+        if (response.status === 401) {
+          toast.error("Session expired. Please log in again.")
+          router.push("/login")
+        }
       }
     } catch (error) {
       console.error("Error:", error)
@@ -195,7 +230,7 @@ export default function StudentsPage() {
   }
 
   const handleEdit = (student: Student) => {
-    setEditingStudent(student);
+    setEditingStudent(student)
     setFormData({
       name: student.name,
       rollNumber: student.rollNumber,
@@ -205,8 +240,18 @@ export default function StudentsPage() {
       semester: student.semester,
       email: student.email,
       phone: student.phone,
-    });
-    setIsDialogOpen(true);
+    })
+    setIsDialogOpen(true)
+  }
+
+  // Wait for auth state to resolve
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  // Don't render anything if not authenticated (redirect will happen via useEffect)
+  if (!isAuthenticated) {
+    return null
   }
 
   return (

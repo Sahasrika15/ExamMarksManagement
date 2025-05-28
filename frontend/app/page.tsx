@@ -306,7 +306,7 @@ export default function HomePage() {
               Join thousands of educators who trust EduMarks for their academic management needs.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup">
+              <Link href="/login">
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 text-lg rounded-full shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 hover:scale-105"
