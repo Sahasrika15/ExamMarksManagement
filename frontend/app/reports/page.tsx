@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -57,7 +57,7 @@ export default function ReportsPage() {
   const [marks, setMarks] = useState<Mark[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // Changed initial state to false
+  const [isLoading, setIsLoading] = useState(false);
 
   const [selectedBatch, setSelectedBatch] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
@@ -101,15 +101,11 @@ export default function ReportsPage() {
       if (selectedSubject !== "all") queryParams.append("subjectId", selectedSubject);
       if (selectedExamType !== "all") queryParams.append("examType", selectedExamType);
 
-      console.log("Fetching data with params:", queryParams.toString());
-
       const response = await fetch(`${API_BASE_URL}/api/reports?${queryParams.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
-      console.log("Response status:", response.status, "Redirected:", response.redirected);
 
       if (response.redirected) {
         console.error("API call resulted in a redirect:", response.url);
@@ -120,14 +116,12 @@ export default function ReportsPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Fetch error:", errorData);
         toast.error(errorData.message || "Failed to fetch reports");
         setIsLoading(false);
         return;
       }
 
       const { marks, students, subjects } = await response.json();
-      console.log("Fetched data:", { marks, students, subjects });
       setMarks(marks);
       setStudents(students);
       setSubjects(subjects);
@@ -163,24 +157,30 @@ export default function ReportsPage() {
     return marks; // Backend handles filtering
   };
 
+  // Fixed: Student Report shows performance of a selected student across all subjects
   const getStudentReport = () => {
     if (selectedStudent === "all") return [];
-    return marks.map((mark) => ({
-      ...mark,
-      subjectName: mark.subject.name,
-      subjectCode: mark.subject.code,
-      percentage: ((mark.scoredMarks / mark.maxMarks) * 100).toFixed(1),
-    }));
+    return marks
+      .filter((mark) => mark.studentId === selectedStudent)
+      .map((mark) => ({
+        ...mark,
+        subjectName: mark.subject.name,
+        subjectCode: mark.subject.code,
+        percentage: ((mark.scoredMarks / mark.maxMarks) * 100).toFixed(1),
+      }));
   };
 
+  // Fixed: Subject Report shows performance of all students for a selected subject
   const getSubjectReport = () => {
     if (selectedSubject === "all") return [];
-    return marks.map((mark) => ({
-      ...mark,
-      studentName: mark.student.name,
-      rollNumber: mark.student.rollNumber,
-      percentage: ((mark.scoredMarks / mark.maxMarks) * 100).toFixed(1),
-    }));
+    return marks
+      .filter((mark) => mark.subjectId === selectedSubject)
+      .map((mark) => ({
+        ...mark,
+        studentName: mark.student.name,
+        rollNumber: mark.student.rollNumber,
+        percentage: ((mark.scoredMarks / mark.maxMarks) * 100).toFixed(1),
+      }));
   };
 
   const getClassStatistics = () => {
@@ -488,8 +488,8 @@ export default function ReportsPage() {
               <Tabs defaultValue="overview" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="student">Student Report</TabsTrigger>
-                  <TabsTrigger value="subject">Subject Report</TabsTrigger>
+                  <TabsTrigger value="student">Subject Report</TabsTrigger>
+                  <TabsTrigger value="subject">Student Report</TabsTrigger>
                   <TabsTrigger value="exam">Exam Analysis</TabsTrigger>
                 </TabsList>
 
@@ -627,7 +627,7 @@ export default function ReportsPage() {
                                         : "bg-red-100 text-red-600"
                                     }`}
                                   >
-                                    {mark.percentage}%
+                                    {percentage.toFixed(2)}%
                                   </span>
                                 </TableCell>
                                 <TableCell>
@@ -708,7 +708,7 @@ export default function ReportsPage() {
                                         : "bg-red-100 text-red-600"
                                     }`}
                                   >
-                                    {mark.percentage}%
+                                    {percentage.toFixed(2)}%
                                   </span>
                                 </TableCell>
                                 <TableCell>
