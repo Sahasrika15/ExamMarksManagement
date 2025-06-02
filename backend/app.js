@@ -42,12 +42,10 @@ initializeServer();
 
 // Middleware
 app.use(cors({
-  origin: ['https://edumarks.vercel.app','https://localhost:3000'], // allow only your frontend domain
-  methods: ['GET', 'POST', 'PUT', 'DELETE','OPTIONS'], // allowed HTTP methods
-  credentials: true, // if you use cookies or auth headers
-  allowedHeaders: ['Content-Type', 'Authorization'] // Explicitly allow these headers
+  origin: ['http://localhost:3000','https://edumarks.vercel.app'], // Allow requests from this origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  credentials: true, // Allow cookies/credentials
 }));
-
 app.use(express.json());
 
 // Routes
@@ -72,5 +70,5 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
