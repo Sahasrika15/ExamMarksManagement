@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation"
 const Navbar = dynamic(() => import("@/app/components/navbar"), { ssr: false })
 
 // Base URL for the Express API
-const API_BASE_URL = "https://exammarksmanagement.onrender.com"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 interface Student {
   _id: string

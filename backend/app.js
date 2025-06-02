@@ -43,8 +43,9 @@ initializeServer();
 // Middleware
 app.use(cors({
   origin: ['https://edumarks.vercel.app','https://localhost:3000'], // allow only your frontend domain
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // allowed HTTP methods
-  credentials: true // if you use cookies or auth headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE','OPTIONS'], // allowed HTTP methods
+  credentials: true, // if you use cookies or auth headers
+  allowedHeaders: ['Content-Type', 'Authorization'] // Explicitly allow these headers
 }));
 
 app.use(express.json());

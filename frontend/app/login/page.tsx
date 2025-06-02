@@ -20,20 +20,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { GraduationCap, Lock, User, Mail, Eye, EyeOff, LogOut } from "lucide-react";
+import { GraduationCap, Lock, User, Mail, Eye, EyeOff, LogOut, Clock } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../components/auth-provider";
 
 // Base URL for the Express backend
-const API_BASE_URL = "https://exammarksmanagement.onrender.com";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function LoginPage() {
   const [loginType, setLoginType] = useState("faculty");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -51,10 +53,31 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Password strength checker
+  const checkPasswordStrength = (password: string) => {
+    if (password.length < 6) return "Weak";
+    if (password.length < 10) return "Moderate";
+    if (/[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) {
+      return "Strong";
+    }
+    return "Moderate";
+  };
 
+  const handlePasswordChange = (password: string) => {
+    setFormData({ ...formData, password });
+    setPasswordStrength(checkPasswordStrength(password));
+  };
+
+  const handleLogin = async () => {
     // Client-side validation
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (!formData.password || formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
     if (loginType === "faculty") {
       if (!formData.facultyId) {
         toast.error("Faculty ID is required for faculty login.");
@@ -65,7 +88,6 @@ export default function LoginPage() {
         return;
       }
     }
-
     if (loginType === "hod" && !formData.department) {
       toast.error("Department is required for HOD login.");
       return;
@@ -84,11 +106,16 @@ export default function LoginPage() {
           facultyId: formData.facultyId || undefined,
           department: formData.department || undefined,
         }),
+        credentials: "include",
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         const userData = {
           email: data.user.email,
           name: data.user.name || "Unknown",
@@ -101,29 +128,41 @@ export default function LoginPage() {
         };
         login(userData, data.token, rememberMe);
         toast.success(`Welcome back, ${data.user.name || "User"}!`);
-        // Clear form
         setFormData({ email: "", password: "", facultyId: "", department: "" });
+        setPasswordStrength("");
       } else {
         toast.error(data.message || "Invalid credentials. Please try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("An error occurred. Please try again.");
+      toast.error(
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : "Failed to connect to the server. Please check your network or server status."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    toast.success("Logged out successfully!");
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      toast.success("Logged out successfully!");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const departments = ["CSE", "ECE", "EEE", "MECH", "CIVIL", "IT", "Administration"];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-purple-100 to-slate-200 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Animated background elements - lighter */}
+      {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-80 h-80 bg-gradient-to-r from-blue-200/30 to-purple-200/30 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -top-20 right-0 w-60 h-60 bg-gradient-to-r from-pink-200/20 to-blue-200/20 rounded-full blur-2xl animate-pulse" style={{ animationDelay: "2s" }}></div>
@@ -190,11 +229,12 @@ export default function LoginPage() {
                   <Button
                     onClick={handleLogout}
                     className="w-full h-12 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 relative overflow-hidden group"
+                    disabled={isLoggingOut}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                     <span className="relative z-10 flex items-center justify-center space-x-2">
                       <LogOut className="h-5 w-5" />
-                      <span>Log Out</span>
+                      <span>{isLoggingOut ? "Logging out..." : "Log Out"}</span>
                     </span>
                   </Button>
                 </div>
@@ -215,7 +255,7 @@ export default function LoginPage() {
                     </Select>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="space-y-5">
                     {/* Email Field */}
                     <div className="space-y-2">
                       <Label htmlFor="email" className="text-base font-semibold text-gray-700">Email Address</Label>
@@ -243,7 +283,7 @@ export default function LoginPage() {
                           type={showPassword ? "text" : "password"}
                           placeholder="Enter your password"
                           value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          onChange={(e) => handlePasswordChange(e.target.value)}
                           className="h-12 pl-12 pr-12 border-2 border-gray-200 focus:border-purple-500 focus:ring-purple-500/20 transition-all duration-200"
                           required
                         />
@@ -251,10 +291,28 @@ export default function LoginPage() {
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-4 top-4 text-gray-400 hover:text-purple-500 transition-colors duration-200"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                         </button>
                       </div>
+                      {/* Password Strength Indicator */}
+                      {formData.password && (
+                        <div className="text-sm">
+                          <span className="font-semibold">Password Strength: </span>
+                          <span
+                            className={
+                              passwordStrength === "Weak"
+                                ? "text-red-500"
+                                : passwordStrength === "Moderate"
+                                ? "text-yellow-500"
+                                : "text-green-500"
+                            }
+                          >
+                            {passwordStrength}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Faculty ID (for faculty login) */}
@@ -297,9 +355,21 @@ export default function LoginPage() {
                       </div>
                     )}
 
+                    {/* Remember Me Checkbox */}
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="rememberMe"
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => setRememberMe(!!checked)}
+                      />
+                      <Label htmlFor="rememberMe" className="text-sm font-medium text-gray-700">
+                        Remember Me
+                      </Label>
+                    </div>
+
                     {/* Submit Button */}
                     <Button
-                      type="submit"
+                      onClick={handleLogin}
                       className="w-full h-12 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 relative overflow-hidden group"
                       disabled={isLoading}
                     >
@@ -315,7 +385,7 @@ export default function LoginPage() {
                         )}
                       </span>
                     </Button>
-                  </form>
+                  </div>
 
                   {/* Back to Home */}
                   <div className="text-center pt-4">
@@ -347,7 +417,6 @@ export default function LoginPage() {
             <CardContent className="p-6">
               {isAuthenticated && user ? (
                 <div className="space-y-4">
-                  {/* Display User Details */}
                   <div className="space-y-2">
                     <Label className="text-sm font-semibold text-gray-700">Name</Label>
                     <div className="p-3 bg-gray-50 rounded-lg text-gray-800">{user.name || "N/A"}</div>
@@ -370,6 +439,15 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <Label className="text-sm font-semibold text-gray-700">Faculty ID</Label>
                       <div className="p-3 bg-gray-50 rounded-lg text-gray-800">{user.facultyId}</div>
+                    </div>
+                  )}
+                  {user.loginTime && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold text-gray-700">Last Login</Label>
+                      <div className="p-3 bg-gray-50 rounded-lg text-gray-800 flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-gray-500" />
+                        <span>{new Date(user.loginTime).toLocaleString()}</span>
+                      </div>
                     </div>
                   )}
                 </div>
